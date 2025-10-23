@@ -8,7 +8,7 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     const token = localStorage.getItem("spotify_access_token");
     if (token) {
-      navigate("/dashboard"); // redirect logged-in users
+      navigate("/"); // redirect logged-in users
     }
   }, [navigate]);
 

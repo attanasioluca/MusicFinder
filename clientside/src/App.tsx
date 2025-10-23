@@ -2,24 +2,25 @@ import React from "react";
 import { Routes, Route } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import DashboardPage from "./pages/DashboardPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CallbackPage from "./pages/CallbackPage";
+import ProfilePage from "./pages/ProfilePage";
 
 const App: React.FC = () => {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
-        path="/dashboard"
+        path="/"
         element={
           <ProtectedRoute>
-            <DashboardPage />
+            <HomePage />
           </ProtectedRoute>
         }
       />
       <Route path="/callback" element={<CallbackPage />} />
+      <Route path="/profile" element={<ProfilePage />} />
+
     </Routes>
   );
 };

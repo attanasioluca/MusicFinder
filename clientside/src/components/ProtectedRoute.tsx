@@ -13,10 +13,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
     useEffect(() => {
         const token = localStorage.getItem("spotify_access_token");
-        axios.get(`${API_URL}/auth/status`, {
-            headers: { Authorization: `Bearer ${token}` },
-        }).then(() => {setAuthenticated(true);})
-        .catch(() => {setAuthenticated(false);});
+        axios
+            .get(`${API_URL}/auth/status`, {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            .then(() => setAuthenticated(true))
+            .catch(() => setAuthenticated(false));
     }, []);
 
     if (authenticated === null) return <div>Loading...</div>;

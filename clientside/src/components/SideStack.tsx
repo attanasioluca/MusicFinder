@@ -19,6 +19,7 @@ import { useSongs } from "../hooks/useSongs";
 
 interface SideStackProps {
   type: "genre" | "stats";
+
 }
 
 const SideStack: React.FC<SideStackProps> = ({ type }) => {
