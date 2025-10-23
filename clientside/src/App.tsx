@@ -4,6 +4,7 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import CallbackPage from "./pages/CallbackPage";
 
 const App: React.FC = () => {
   return (
@@ -18,6 +19,7 @@ const App: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      <Route path="/callback" element={<CallbackPage />} />
     </Routes>
   );
 };

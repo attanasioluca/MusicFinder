@@ -1,15 +1,23 @@
-import { Heading, VStack } from '@chakra-ui/react'
-import SongsView from './SongsView'
-import Footer from './Footer'
+import { useSpotifySongs } from "../hooks/spotify/useSpotifySongs";
 
 const CenterStack = () => {
-  return (
-    <VStack p={4} bg="gray.800" borderRadius="lg" m={4} minW="950px">
-        <Heading mb={2} size="lg" color={"purple.600"}>Recommendations</Heading>
-        <SongsView/>
-        <Footer/>
-    </VStack>
-  )
-}
+    const { songs, loading, error, refetch } = useSpotifySongs();
 
-export default CenterStack
+    if (loading) return <p>Loading your Spotify tracks...</p>;
+    if (error) return <p>{error}</p>;
+    return (
+        <div>
+            <h1>Your Top Spotify Tracks</h1>
+            <button onClick={refetch}>Reload</button>
+            <ul>
+                {songs.map((t) => (
+                    <li key={t.id}>
+                        {t.name} — {t.artists.map((a) => a.name).join(", ")}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
+export default CenterStack;
