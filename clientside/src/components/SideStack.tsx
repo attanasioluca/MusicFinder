@@ -1,133 +1,187 @@
 // src/components/SideStack.tsx
 import React from "react";
 import {
-  Box,
-  Heading,
-  VStack,
-  Tabs,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
-  Text,
-  Spinner,
+    Box,
+    Heading,
+    VStack,
+    Tabs,
+    TabList,
+    Tab,
+    TabPanels,
+    TabPanel,
+    Text,
+    Spinner,
+    Flex,
 } from "@chakra-ui/react";
-import { useGenres } from "../hooks/useGenres";
-import { useSubGenres } from "../hooks/useSubGenres";
-import { useArtists } from "../hooks/useArtists";
-import { useSongs } from "../hooks/useSongs";
+import type { SpotifyArtist, SpotifyTrack } from "../models";
 
 interface SideStackProps {
-  type: "genre" | "stats";
-
+    type: "genre" | "stats";
+    data: (SpotifyTrack & { genres?: string[] })[] | null;
+    loading: boolean;
+    error: string | null;
 }
 
-const SideStack: React.FC<SideStackProps> = ({ type }) => {
-  if (type === "genre") {
-    const { genres, loading } = useGenres();
-
-    const subgenreCodes = Array.from(
-      new Set(
-        genres
-          .map((g) => g.sub_genres)
-          .filter((code): code is string => Boolean(code))
-      )
-    ).slice(0, 5);
-
-    const { names: subGenreNames, loading: subLoading } = useSubGenres(
-      genres,
-      subgenreCodes
+const SideStack: React.FC<SideStackProps> = ({
+    type,
+    data,
+    loading,
+    error,
+}) => {
+    const artists = Object.values(
+        data
+            ?.flatMap((t) => t.artists)
+            .reduce((acc, artist) => {
+                acc[artist.id] = artist;
+                return acc;
+            }, {} as Record<string, SpotifyArtist>) || {}
     );
 
-    return (
-      <Box p={4} bg="gray.800" borderRadius="lg" m={4} minW="250px">
-        <VStack>
-          <Heading mb={2} size="lg" color="purple.600">
-            Genres
-          </Heading>
-          {loading ? (
-            <Spinner />
-          ) : (
-            <Tabs variant="soft-rounded" colorScheme="green">
-              <TabList>
-                <Tab>Standard</Tab>
-                <Tab>Subgenres</Tab>
-              </TabList>
-              <TabPanels>
-                <TabPanel>
-                  {genres.slice(0, 5).map((g, i) => (
-                    <Text key={`${g.genre_code}-${i}`} color="green.200">
-                      {g.genre_name}
-                    </Text>
-                  ))}
-                </TabPanel>
-                <TabPanel>
-                  {subLoading ? (
-                    <Spinner />
-                  ) : subGenreNames.length > 0 ? (
-                    subGenreNames.map((name, i) => (
-                      <Text key={`${name}-${i}`} color="purple.200">
-                        {name}
-                      </Text>
-                    ))
-                  ) : (
-                    <Text color="gray.400">No subgenres found</Text>
-                  )}
-                </TabPanel>
-              </TabPanels>
-            </Tabs>
-          )}
-        </VStack>
-      </Box>
-    );
-  }
+    if (loading) {
+        return (
+            <Flex justify="center" align="center" h="100%">
+                <Spinner size="xl" color="green.400" />
+            </Flex>
+        );
+    }
 
-  if (type === "stats") {
-    const { artists, loading: artistsLoading } = useArtists();
-    const { songs, loading: songsLoading } = useSongs();
+    if (error) {
+        return (
+            <Flex justify="center" align="center" h="100%">
+                <Text color="red.400" fontSize="lg">
+                    {error}
+                </Text>
+            </Flex>
+        );
+    }
+    if (type === "genre") {
+        const genres = [...new Set(data?.flatMap((t) => t.genres || []) || [])];
+        const subgenres = Array.from(
+            new Set(
+                genres
+                    .map((g) => g)
+                    .filter((code): code is string => Boolean(code))
+            )
+        );
 
-    return (
-      <Box p={4} bg="gray.800" borderRadius="lg" m={4} minW="250px">
-        <VStack>
-          <Heading mb={2} size="lg" color="purple.600">
-            Stats
-          </Heading>
-          <Tabs variant="soft-rounded" colorScheme="green">
-            <TabList>
-              <Tab>Artists</Tab>
-              <Tab>Songs</Tab>
-            </TabList>
-            <TabPanels>
-              <TabPanel>
-                {artistsLoading ? (
-                  <Spinner />
-                ) : (
-                  artists.slice(0, 5).map((a, i) => (
-                    <Text key={`${a.artist_code}-${i}`} color="green.200">
-                      {a.artist_name}
-                    </Text>
-                  ))
-                )}
-              </TabPanel>
-              <TabPanel>
-                {songsLoading ? (
-                  <Spinner />
-                ) : (
-                  songs.slice(0, 5).map((s, i) => (
-                    <Text key={`${s.id}-${i}`} color="green.200">
-                      {s.title}
-                    </Text>
-                  ))
-                )}
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
-        </VStack>
-      </Box>
-    );
-  }
+        
+        return (
+            <Box p={4} bg="gray.800" borderRadius="lg" m={4} w="300px">
+                <VStack>
+                    <Heading mb={2} size="lg" color="purple.400">
+                        Genres
+                    </Heading>
+                    <Tabs
+                        variant="solid-rounded"
+                        colorScheme="purple"
+                    >
+                        <TabList>
+                            <Tab>Standard</Tab>
+                            <Tab>Subgenres</Tab>
+                        </TabList>
+                        <TabPanels>
+                            <TabPanel>
+                                {genres.slice(0,10).map((g) => (
+                                    <Box
+                                        p={4}
+                                        bg="gray.700"
+                                        borderRadius="lg"
+                                        m={4}
+                                        justifyItems={"center"}
+                                        key={`genre-${g}`}
+                                    >
+                                        <Text
+                                            color="purple.400"
+                                        >
+                                            {g[0].toUpperCase() + g.slice(1)}
+                                        </Text>
+                                    </Box>
+                                ))}
+                            </TabPanel>
+                            <TabPanel>
+                                {subgenres.slice(0,10).map((g) => (
+                                    <Box
+                                        p={4}
+                                        bg="gray.700"
+                                        borderRadius="lg"
+                                        m={4}
+                                        justifyItems={"center"}
+                                        key={`subgenre-${g}`}
+                                    >
+                                        <Text   
+                                            color="purple.400"
+                                        >
+                                            {g[0].toUpperCase() + g.slice(1)}
+                                        </Text>
+                                    </Box>
+                                ))}
+                            </TabPanel>
+                        </TabPanels>
+                    </Tabs>
+                </VStack>
+            </Box>
+        );
+    }
 
-  return null;
+    if (type === "stats") {
+        return (
+            <Box p={4} bg="gray.800" borderRadius="lg" m={4} w="300px">
+                <VStack>
+                    <Heading mb={2} size="lg" color="purple.400">
+                        Stats
+                    </Heading>
+                    <Tabs variant="solid-rounded" colorScheme="purple">
+                        <TabList>
+                            <Tab>Artists</Tab>
+                            <Tab>Songs</Tab>
+                        </TabList>
+                        <TabPanels>
+                            <TabPanel>
+                                {artists.slice(0, 10).map((artist) => (
+                                    <Box
+                                        p={4}
+                                        bg="gray.700"
+                                        borderRadius="lg"
+                                        m={4}
+                                        justifyItems={"center"}
+                                        key={`artist-${artist.id}`}
+                                    >
+                                        <Text
+                                            
+                                            color="purple.400"
+                                        >
+                                            {artist.name}
+                                        </Text>
+                                    </Box>
+                                ))}
+                            </TabPanel>
+                            <TabPanel>
+                                {data?.slice(0, 10).map((track) => (
+                                    <Box
+                                        p={4}
+                                        bg="gray.700"
+                                        borderRadius="lg"
+                                        m={4}
+                                        justifyItems={"center"}
+                                        key={`track-${track.id}`}
+                                    >
+                                        <Text
+                                            
+                                            color="purple.400"
+                                        >
+                                            {track.name}
+                                        </Text>
+                                    </Box>
+                                ))}
+                            </TabPanel>
+                        </TabPanels>
+                    </Tabs>
+                </VStack>
+            </Box>
+        );
+    }
+
+    return null;
 };
 
 export default SideStack;
