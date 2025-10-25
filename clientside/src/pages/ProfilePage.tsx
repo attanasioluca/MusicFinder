@@ -13,6 +13,7 @@ import {
   Flex,
   Icon,
   Tooltip,
+  Button,
 } from "@chakra-ui/react";
 import { ExternalLink, Mail } from "lucide-react";
 
@@ -26,6 +27,10 @@ const ProfilePage = () => {
         <Text color="gray.400">No user data available.</Text>
       </Flex>
     );
+  }
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/login"; 
   }
 
   const profileImg = user.images?.[0]?.url || "https://placehold.co/200x200";
@@ -108,7 +113,11 @@ const ProfilePage = () => {
               <strong>Profile URI:</strong> {user.external_urls.spotify}
             </Text>
           </Box>
+        <Button onClick={handleLogout} colorScheme="red" mt={4} >
+            Log Out
+            </Button>
         </VStack>
+        
       </Box>
     </Flex>
   );
