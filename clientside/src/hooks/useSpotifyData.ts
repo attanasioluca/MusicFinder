@@ -9,7 +9,7 @@ export interface SpotifyData {
     error: string | null;
 }
 
-export const useSpotifyData = () => {
+export const useSpotifyData = ( timeRange: string, trackType: string ) => {
     const [data, setData] = useState<SpotifyData>({
         user: null,
         tracks: null,
@@ -19,20 +19,25 @@ export const useSpotifyData = () => {
 
     useEffect(() => {
         const fetchSpotifyData = async () => {
+            const trackEndpoint = trackType === "top" ? `/spot/tracks/top/${timeRange}` : "/spot/tracks/recent";
             try {
-                // 1️⃣ Fetch user + top tracks
                 const [userRes, tracksRes] = await Promise.all([
                     spotifyClient.get("/spot/user"),
-                    spotifyClient.get("/spot/tracks"),
+                    spotifyClient.get(trackEndpoint),
                 ]);
 
                 const user = userRes.data;
                 const tracks: SpotifyTrack[] = tracksRes.data;
-                const artistIds = [
+                let artistIds: string[] = [];
+                console.log(tracks[0]?.artists);
+                
+                try{
+                    artistIds = [
                     ...new Set(
                         tracks.flatMap((t) => t.artists.map((a) => a.id))
                     ),
                 ];
+                }catch(e){}
                 const { data: genreMap } = await spotifyClient.get(
                     `/spot/artists-genres/${artistIds.join(",")}`
                 );
@@ -65,7 +70,7 @@ export const useSpotifyData = () => {
         };
 
         fetchSpotifyData();
-    }, []);
+    }, [timeRange, trackType]);
 
     return data;
 };

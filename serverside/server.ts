@@ -3,7 +3,7 @@ import axios from "axios";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import { User, Track, Artist, Genre, UserTrack} from "./models.js";
+import { User, Track, Artist, Genre, UserTrack } from "./models.js";
 
 dotenv.config();
 
@@ -34,13 +34,13 @@ app.use(
 );
 app.use(express.json());
 
-// ===== OAuth: Step 1 - Login (redirect user to Spotify auth page) =====
 app.get("/login", (_req: Request, res: Response) => {
     const scopes = [
         "user-read-private",
         "user-read-email",
         "user-top-read",
         "playlist-read-private",
+        "user-read-recently-played",
     ].join(" ");
 
     const authUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${
@@ -56,82 +56,87 @@ app.get("/login", (_req: Request, res: Response) => {
 app.get("/callback", async (req, res) => {
     const code = req.query.code as string;
     if (!code) return res.status(400).send("Missing code");
-  
+
     try {
-      // Step 1: Exchange code for tokens
-      const tokenRes = await axios.post(
-        "https://accounts.spotify.com/api/token",
-        new URLSearchParams({
-          grant_type: "authorization_code",
-          code,
-          redirect_uri: redirectUri,
-          client_id: process.env.SPOTIFY_CLIENT_ID!,
-          client_secret: process.env.SPOTIFY_CLIENT_SECRET!,
-        }),
-        { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-      );
-  
-      const { access_token, refresh_token, expires_in } = tokenRes.data;
-  
-      // Step 2: Fetch Spotify profile + top tracks
-      const [userRes, tracksRes] = await Promise.all([
-        axios.get("https://api.spotify.com/v1/me", {
-          headers: { Authorization: `Bearer ${access_token}` },
-        }),
-        axios.get("https://api.spotify.com/v1/me/top/tracks?limit=20", {
-          headers: { Authorization: `Bearer ${access_token}` },
-        }),
-      ]);
-  
-      const spotifyUser = userRes.data;
-      const topTracks = tracksRes.data.items;
-  
-      // Step 3: Upsert user into DB
-      const userDoc = await User.findOneAndUpdate(
-        { spotifyId: spotifyUser.id },
-        {
-          display_name: spotifyUser.display_name,
-          email: spotifyUser.email,
-          profileUrl: spotifyUser.external_urls.spotify,
-          images: spotifyUser.images?.map((img: any) => img.url),
-          followers: spotifyUser.followers?.total || 0,
-          country: spotifyUser.country,
-          product: spotifyUser.product,
-          lastLogin: new Date(),
-        },
-        { upsert: true, new: true }
-      );
-  
-      // Step 4: Upsert each track (avoid duplicates)
-      for (const t of topTracks) {
-        await Track.findOneAndUpdate(
-          { spotifyId: t.id },
-          {
-            name: t.name,
-            albumName: t.album.name,
-            artistNames: t.artists.map((a: any) => a.name),
-            albumArt: t.album.images?.[0]?.url,
-            popularity: t.popularity,
-            duration_ms: t.duration_ms,
-            explicit: t.explicit,
-            externalUrl: t.external_urls.spotify,
-          },
-          { upsert: true }
+        // Step 1: Exchange code for tokens
+        const tokenRes = await axios.post(
+            "https://accounts.spotify.com/api/token",
+            new URLSearchParams({
+                grant_type: "authorization_code",
+                code,
+                redirect_uri: redirectUri,
+                client_id: process.env.SPOTIFY_CLIENT_ID!,
+                client_secret: process.env.SPOTIFY_CLIENT_SECRET!,
+            }),
+            { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
         );
-      }
-  
-      console.log(`✅ Synced ${topTracks.length} tracks for ${spotifyUser.display_name}`);
-  
-      // Step 5: Redirect to frontend (store tokens)
-      res.redirect(
-        `${process.env.FRONTEND_URL}/callback?access_token=${access_token}&refresh_token=${refresh_token}&expires_in=${expires_in}`
-      );
+
+        const { access_token, refresh_token, expires_in } = tokenRes.data;
+
+        // Step 2: Fetch Spotify profile + top tracks
+        const [userRes, tracksRes] = await Promise.all([
+            axios.get("https://api.spotify.com/v1/me", {
+                headers: { Authorization: `Bearer ${access_token}` },
+            }),
+            axios.get("https://api.spotify.com/v1/me/top/tracks?limit=20", {
+                headers: { Authorization: `Bearer ${access_token}` },
+            }),
+        ]);
+
+        const spotifyUser = userRes.data;
+        const topTracks = tracksRes.data.items;
+
+        // Step 3: Upsert user into DB
+        const userDoc = await User.findOneAndUpdate(
+            { spotifyId: spotifyUser.id },
+            {
+                display_name: spotifyUser.display_name,
+                email: spotifyUser.email,
+                profileUrl: spotifyUser.external_urls.spotify,
+                images: spotifyUser.images?.map((img: any) => img.url),
+                followers: spotifyUser.followers?.total || 0,
+                country: spotifyUser.country,
+                product: spotifyUser.product,
+                lastLogin: new Date(),
+            },
+            { upsert: true, new: true }
+        );
+
+        // Step 4: Upsert each track (avoid duplicates)
+        for (const t of topTracks) {
+            await Track.findOneAndUpdate(
+                { spotifyId: t.id },
+                {
+                    name: t.name,
+                    albumName: t.album.name,
+                    artistNames: t.artists.map((a: any) => a.name),
+                    albumArt: t.album.images?.[0]?.url,
+                    popularity: t.popularity,
+                    duration_ms: t.duration_ms,
+                    explicit: t.explicit,
+                    externalUrl: t.external_urls.spotify,
+                },
+                { upsert: true }
+            );
+        }
+
+        console.log(
+            `✅ Synced ${topTracks.length} tracks for ${spotifyUser.display_name}`
+        );
+
+        // Step 5: Redirect to frontend (store tokens)
+        res.redirect(
+            `${process.env.FRONTEND_URL}/callback?access_token=${access_token}&refresh_token=${refresh_token}&expires_in=${expires_in}`
+        );
     } catch (err: any) {
-      console.error("❌ Spotify callback error:", err.response?.data || err.message);
-      res.status(500).send("Auth failed");
+        console.error(
+            "❌ Spotify callback error:",
+            err.response?.data || err.message
+        );
+        res.status(500).send("Auth failed");
     }
-  });
-  
+});
+
 // ===== Token refresh (frontend calls this with refresh_token) =====
 app.get("/refresh_token", async (req: Request, res: Response) => {
     const refreshToken = req.query.refresh_token as string;
@@ -192,22 +197,34 @@ const ensureSpotifyAccessToken = async (
     }
 };
 
-
 // ===== Auth status check =====
 app.get("/spot/auth/status", ensureSpotifyAccessToken, (_req, res) => {
     res.status(200).json({ authenticated: true });
 });
 // ===== Spotify API: get user’s top songs =====
-app.get("/spot/tracks", ensureSpotifyAccessToken, async (req: Request, res: Response) => {
+app.get(
+    "/spot/tracks/top/:time_range",
+    ensureSpotifyAccessToken,
+    async (req: Request, res: Response) => {
         const accessToken = req.headers.authorization?.split(" ")[1];
+        const timeRange = (req.params.time_range as string) || "medium_term";
+        console.log("timeRange:", timeRange);
+        const allowed = new Set(["short_term", "medium_term", "long_term"]);
+        if (!allowed.has(timeRange)) {
+            return res.status(400).json({ error: "Invalid time_range" });
+        }
         try {
-            const spotRes = await axios.get(
-                "https://api.spotify.com/v1/me/top/tracks?limit=20",
+            const {data} = await axios.get(
+                "https://api.spotify.com/v1/me/top/tracks",
                 {
                     headers: { Authorization: `Bearer ${accessToken}` },
+                    params: {
+                        time_range: timeRange,
+                        limit: Math.min(Number(req.query.limit) || 20, 50),
+                    },
                 }
             );
-            res.json(spotRes.data.items);
+            res.json(data.items);
         } catch (err: any) {
             console.error(
                 "❌ Error fetching songs:",
@@ -234,49 +251,120 @@ app.get("/spot/user", ensureSpotifyAccessToken, async (req, res) => {
     }
 });
 
-app.get("/spot/artists-genres/:artistIds", ensureSpotifyAccessToken, async (req, res) => {
-    const accessToken = req.headers.authorization?.split(" ")[1];
-    const artistIds = req.params.artistIds.split(",").slice(0, 50); // Spotify max = 50
-  
-    try {
-      const cached = await Artist.find({ spotifyId: { $in: artistIds } });
-      const cachedIds = cached.map((a) => a.spotifyId);
-      const missingIds = artistIds.filter((id) => !cachedIds.includes(id));
-  
-      // 2️⃣ Fetch missing artists from Spotify
-      let newArtists: any[] = [];
-      if (missingIds.length) {
-        const spotifyRes = await axios.get(
-          `https://api.spotify.com/v1/artists?ids=${missingIds.join(",")}`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        newArtists = spotifyRes.data.artists.map((a: any) => ({
-          spotifyId: a.id,
-          name: a.name,
-          genres: a.genres,
-          followers: a.followers.total,
-          popularity: a.popularity,
-          image: a.images?.[0]?.url,
-        }));
-  
-        // Cache newly fetched artists
-        await Artist.insertMany(newArtists, { ordered: false }).catch(() => {});
-      }
-  
-      // 3️⃣ Combine cached + new
-      const allArtists = [...cached, ...newArtists];
-      const genreMap = Object.fromEntries(
-        allArtists.map((a) => [a.spotifyId, a.genres || []])
-      );
-  
-      res.json(genreMap);
-    } catch (err: any) {
-      console.error("❌ Failed to get artist genres:", err.response?.data || err.message);
-      res.status(500).json({ error: "Failed to fetch artist genres" });
-    }
-  });
-  
+app.get(
+    "/spot/artists-genres/:artistIds",
+    ensureSpotifyAccessToken,
+    async (req, res) => {
+        const accessToken = req.headers.authorization?.split(" ")[1];
+        const artistIds = req.params.artistIds.split(",").slice(0, 50); // Spotify max = 50
 
+        try {
+            const cached = await Artist.find({ spotifyId: { $in: artistIds } });
+            const cachedIds = cached.map((a) => a.spotifyId);
+            const missingIds = artistIds.filter(
+                (id) => !cachedIds.includes(id)
+            );
+
+            // 2️⃣ Fetch missing artists from Spotify
+            let newArtists: any[] = [];
+            if (missingIds.length) {
+                const spotifyRes = await axios.get(
+                    `https://api.spotify.com/v1/artists?ids=${missingIds.join(
+                        ","
+                    )}`,
+                    { headers: { Authorization: `Bearer ${accessToken}` } }
+                );
+                newArtists = spotifyRes.data.artists.map((a: any) => ({
+                    spotifyId: a.id,
+                    name: a.name,
+                    genres: a.genres,
+                    followers: a.followers.total,
+                    popularity: a.popularity,
+                    image: a.images?.[0]?.url,
+                }));
+
+                // Cache newly fetched artists
+                await Artist.insertMany(newArtists, { ordered: false }).catch(
+                    () => {}
+                );
+            }
+
+            // 3️⃣ Combine cached + new
+            const allArtists = [...cached, ...newArtists];
+            const genreMap = Object.fromEntries(
+                allArtists.map((a) => [a.spotifyId, a.genres || []])
+            );
+
+            res.json(genreMap);
+        } catch (err: any) {
+            console.error(
+                "❌ Failed to get artist genres:",
+                err.response?.data || err.message
+            );
+            res.status(500).json({ error: "Failed to fetch artist genres" });
+        }
+    }
+);
+
+app.get("/spot/tracks/recent", ensureSpotifyAccessToken, async (req, res) => {
+    const accessToken = req.headers.authorization?.split(" ")[1];
+    const limit = Math.min(Number(req.query.limit) || 50, 40);
+
+    try {
+        const { data } = await axios.get(
+            "https://api.spotify.com/v1/me/player/recently-played",
+            {
+                headers: { Authorization: `Bearer ${accessToken}` },
+                params: { limit },
+            }
+        );
+
+        // Map each item to its track with timestamp
+        const allTracks = data.items.map((i: any) => ({
+            ...i.track,
+            played_at: i.played_at,
+        }));
+
+        // Deduplicate by track.id, keeping the most recent
+        const uniqueTracksMap = new Map();
+        for (const t of allTracks) {
+            if (!uniqueTracksMap.has(t.id)) {
+                uniqueTracksMap.set(t.id, t);
+            }
+        }
+        const uniqueTracks = Array.from(uniqueTracksMap.values());
+        res.json(uniqueTracks);
+    } catch (err: any) {
+        console.error(
+            "❌ Error fetching songs:",
+            err.response?.data || err.message
+        );
+        res.status(500).json({ error: "Failed to fetch songs" });
+    }
+});
+
+app.get(
+    "/spot/tracks/saved",
+    ensureSpotifyAccessToken,
+    async (req: Request, res: Response) => {
+        const accessToken = req.headers.authorization?.split(" ")[1];
+        try {
+            const spotRes = await axios.get(
+                "https://api.spotify.com/v1/me/tracks/?limit=20",
+                {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                }
+            );
+            res.json(spotRes.data.items);
+        } catch (err: any) {
+            console.error(
+                "❌ Error fetching songs:",
+                err.response?.data || err.message
+            );
+            res.status(500).json({ error: "Failed to fetch songs" });
+        }
+    }
+);
 
 // ===== Core APIs =====
 app.get("/api/users", async (_req, res) => res.json(await User.find()));
@@ -290,29 +378,29 @@ app.get("/api/genres", async (_req, res) => res.json(await Genre.find()));
 // Like a track
 app.post("/api/tracks/:id/like", async (req, res) => {
     try {
-      const track = await Track.findOneAndUpdate(
-        { spotifyId: req.params.id },
-        { liked: true },
-        { new: true }
-      );
-      res.json(track);
+        const track = await Track.findOneAndUpdate(
+            { spotifyId: req.params.id },
+            { liked: true },
+            { new: true }
+        );
+        res.json(track);
     } catch (err) {
-      res.status(500).json({ error: "Failed to update track" });
+        res.status(500).json({ error: "Failed to update track" });
     }
-  });
-  
-  // Increment play count
-  app.post("/api/tracks/:id/play", async (req, res) => {
+});
+
+// Increment play count
+app.post("/api/tracks/:id/play", async (req, res) => {
     try {
-      const track = await Track.findOneAndUpdate(
-        { spotifyId: req.params.id },
-        { $inc: { playCount: 1 }, lastPlayed: new Date() },
-        { new: true }
-      );
-      res.json(track);
+        const track = await Track.findOneAndUpdate(
+            { spotifyId: req.params.id },
+            { $inc: { playCount: 1 }, lastPlayed: new Date() },
+            { new: true }
+        );
+        res.json(track);
     } catch (err) {
-      res.status(500).json({ error: "Failed to update track" });
+        res.status(500).json({ error: "Failed to update track" });
     }
-  });
-  
+});
+
 export default app;
