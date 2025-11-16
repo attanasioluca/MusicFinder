@@ -101,7 +101,7 @@ JWT_SECRET=your-jwt-secret
 ## API Overview
 
 ### Auth
-```text
+```
 POST /signup                    → Create account
 POST /login                     → Email/password login
 GET  /auth/google               → Google OAuth login
@@ -109,23 +109,23 @@ GET  /userByToken/:token        → Fetch logged-in user
 ```
 
 ### Users
-```text
+```
 GET  /allUsers/:userId          → Get all users except self/friends
 POST /changeFriendStatus        → Add or remove a friend
 ```
 ### Games
-```text
+```
 GET  /gameStatus?userId&gameId  → Fetch collection/wishlist status
 POST /changeGameStatus          → Add or remove from collection/wishlist
 ```
 ### Reviews
-```text
+```
 GET  /reviews/:gameId           → Fetch reviews for a game
 POST /addReview                 → Add a review
 POST /deleteReview              → Delete a review
 ```
 ### Environment Variables
-```text
+```
 Create a secret.js file inside /server and populate Mongo + JWT secrets
 ```
 ---
