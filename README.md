@@ -102,49 +102,32 @@ JWT_SECRET=your-jwt-secret
 
 ### Auth
 ```text
-GET  /auth/spotify/login        → Redirect to Spotify login
-GET  /auth/spotify/callback     → Exchange code for tokens
-GET  /auth/refresh              → Refresh access token
+POST /signup                    → Create account
+POST /login                     → Email/password login
+GET  /auth/google               → Google OAuth login
+GET  /userByToken/:token        → Fetch logged-in user
 ```
 
-### User Data
+### Users
 ```text
-GET  /user/profile              → Stored user profile
-GET  /user/top-tracks           → Stored top tracks
-GET  /user/top-artists          → Stored top artists
-GET  /user/genres               → Stored genre distribution
+GET  /allUsers/:userId          → Get all users except self/friends
+POST /changeFriendStatus        → Add or remove a friend
 ```
-
-### Recommendations
+### Games
 ```text
-GET  /recommend/tracks          → Spotify recommendations
-GET  /recommend/sorted          → Sorted/filtered recommendations
+GET  /gameStatus?userId&gameId  → Fetch collection/wishlist status
+POST /changeGameStatus          → Add or remove from collection/wishlist
 ```
-
-### Search
+### Reviews
 ```text
-GET /search?query=              → Spotify search
+GET  /reviews/:gameId           → Fetch reviews for a game
+POST /addReview                 → Add a review
+POST /deleteReview              → Delete a review
 ```
-
----
-
-## Screenshots
-
-Add your images in /screenshots and reference them like:
-
-```markdown
-## Screenshots
-
-### Dashboard
-![Dashboard](./screenshots/dashboard.png)
-
-### Recommendations
-![Recommendations](./screenshots/recommendations.png)
-
-### Login
-![Login](./screenshots/login.png)
+### Environment Variables
+```text
+Create a secret.js file inside /server and populate Mongo + JWT secrets
 ```
-
 ---
 
 ## Future Improvements
