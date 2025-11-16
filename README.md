@@ -98,16 +98,16 @@ JWT_SECRET=your-jwt-secret
 
 ---
 
-## 'API Overview'
+## API Overview
 
-### 'Auth'
+### Auth
 ```text
 GET  /auth/spotify/login        → Redirect to Spotify login
 GET  /auth/spotify/callback     → Exchange code for tokens
 GET  /auth/refresh              → Refresh access token
 ```
 
-### 'User Data'
+### User Data
 ```text
 GET  /user/profile              → Stored user profile
 GET  /user/top-tracks           → Stored top tracks
